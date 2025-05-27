@@ -167,6 +167,8 @@ if mode == "Train New Model" and uploaded_zip:
         train_loss, val_loss = train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs)
         st.session_state.model = model
         st.session_state.class_names = class_names
+        st.session_state.trained_model = model
+        st.session_state.trained_model_ready = True
 
         st.subheader("📉 Loss Curve")
         fig, ax = plt.subplots()
@@ -188,28 +190,26 @@ if mode == "Train New Model" and uploaded_zip:
         st.subheader("🧾 Confusion Matrix")
         st.pyplot(fig2)
 
-        # Prompt to save model
-        # --- Save Model Logic (Reliable with session state) ---
-        default_name = f"cnn_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        save_name = st.text_input("💾 Save trained model as (no extension):", default_name)
+# --- Save/Download After Training ---
+if st.session_state.get("trained_model_ready", False):
+    default_name = f"cnn_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    save_name = st.text_input("💾 Save trained model as (no extension):", default_name)
 
-        if st.button("Save Trained Model"):
-            model_path = f"{save_name}.pt"
-            torch.save(model, model_path)
-            st.session_state.model_saved = True
-            st.session_state.model_path = model_path
-            st.success(f"✅ Model saved as {model_path}")
+    if st.button("Save Trained Model"):
+        model_path = f"{save_name}.pt"
+        torch.save(st.session_state.trained_model, model_path)
+        st.session_state.model_saved = True
+        st.session_state.model_path = model_path
+        st.success(f"✅ Model saved as {model_path}")
 
-        # Show download button only if model was saved
-        if st.session_state.get("model_saved", False):
-            with open(st.session_state.model_path, "rb") as f:
-                st.download_button(
-                    label="📥 Download Trained Model",
-                    data=f,
-                    file_name=st.session_state.model_path,
-                    mime="application/octet-stream"
-                )
-
+    if st.session_state.get("model_saved", False) and os.path.exists(st.session_state.model_path):
+        with open(st.session_state.model_path, "rb") as f:
+            st.download_button(
+                label="📥 Download Trained Model",
+                data=f,
+                file_name=st.session_state.model_path,
+                mime="application/octet-stream"
+            )
 
 # --- Prediction UI ---
 if "model" in st.session_state and "class_names" in st.session_state:
