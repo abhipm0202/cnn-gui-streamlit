@@ -89,15 +89,20 @@ def extract_zip(zip_file):
     return EXTRACT_DIR
 
 # --- Header ---
-with st.container():
-    col1, col2, col3 = st.columns([1.5, 3, 1.5])
-    with col1:
-        st.image("NMIS_logo.png", width=140)
-    with col2:
-        st.markdown("<h1 style='text-align: center; margin-top: 10px;'>Colab CNN Trainer</h1>", unsafe_allow_html=True)
-        st.markdown("<h4 style='text-align: center; margin-top: -15px;'>Welcome to CNN GUI developed by D3MColab</h4>", unsafe_allow_html=True)
-    with col3:
-        st.image("Colab_logo.png", width=120)
+st.markdown("""
+<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 0 2rem; margin-bottom: 2rem;">
+    <img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/NMIS_logo.png" style="height: 70px; margin-top: 5px;" />
+    
+    <div style="text-align: center; line-height: 1.2;">
+        <h1 style="margin: 0;">Colab CNN Trainer</h1>
+        <h4 style="margin: 0;">Welcome to CNN GUI developed by D3MColab</h4>
+    </div>
+    
+    <img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/Colab_logo.png" style="height: 70px; margin-top: 5px;" />
+</div>
+""", unsafe_allow_html=True)
+
+
 
 # --- Sidebar Config ---
 with st.sidebar:
