@@ -125,7 +125,7 @@ with st.sidebar:
 if mode == "Load Trained Model" and model_file is not None:
     try:
         class_names = [cls.strip() for cls in label_list.split(",")]
-        model = torch.load(model_file, map_location=DEVICE)
+        model = torch.load(model_file, map_location=DEVICE, weights_only=False)
         st.session_state.model = model
         st.session_state.class_names = class_names
         st.success("✅ Model loaded successfully. You can test below.")
