@@ -89,18 +89,24 @@ def extract_zip(zip_file):
     return EXTRACT_DIR
 
 # --- Header ---
-st.markdown("""
-<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 0 2rem; margin-bottom: 2rem;">
-    <img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/NMIS_logo.png" style="height: 70px; margin-top: 5px;" />
-    
-    <div style="text-align: center; line-height: 1.2;">
-        <h1 style="margin: 0;">Colab CNN Trainer</h1>
-        <h4 style="margin: 0;">Welcome to CNN GUI developed by D3MColab</h4>
-    </div>
-    
-    <img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/Colab_logo.png" style="height: 70px; margin-top: 5px;" />
-</div>
-""", unsafe_allow_html=True)
+
+
+# --- Header ---
+st.markdown(
+    '<div style="display: flex; justify-content: space-between; align-items: flex-start; '
+    'padding: 0 2rem; margin-bottom: 2rem;">'
+    '<img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/NMIS_logo.png" '
+    'style="height: 70px; margin-top: 5px;" />'
+    '<div style="text-align: center; line-height: 1.2;">'
+    '<h1 style="margin: 0;">Colab CNN Trainer</h1>'
+    '<h4 style="margin: 0;">Welcome to CNN GUI developed by D3MColab</h4>'
+    '</div>'
+    '<img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/Colab_logo.png" '
+    'style="height: 70px; margin-top: 5px;" />'
+    '</div>',
+    unsafe_allow_html=True
+)
+
 
 
 
