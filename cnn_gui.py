@@ -190,10 +190,20 @@ if mode == "Train New Model" and uploaded_zip:
 
         # Prompt to save model
         save_name = st.text_input("💾 Save trained model as (no extension):", f"cnn_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        if st.button("Save Trained Model"):
+        save_triggered = st.button("Save Trained Model")
+
+        if save_triggered:
             torch.save(model, f"{save_name}.pt")
+            st.success(f"Model saved as {save_name}.pt")
+
             with open(f"{save_name}.pt", "rb") as f:
-                st.download_button("📥 Download Trained Model", f, file_name=f"{save_name}.pt")
+                st.download_button(
+                    label="📥 Download Trained Model",
+                    data=f,
+                    file_name=f"{save_name}.pt",
+                    mime="application/octet-stream"
+                )
+
 
 # --- Prediction UI ---
 if "model" in st.session_state and "class_names" in st.session_state:
