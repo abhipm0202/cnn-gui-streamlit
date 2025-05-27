@@ -102,7 +102,7 @@ st.markdown(
     '<h4 style="margin: 0;">Welcome to CNN GUI developed by D3MColab</h4>'
     '</div>'
     '<img src="https://raw.githubusercontent.com/abhipm0202/cnn-gui-streamlit/main/Colab_logo.png" '
-    'style="height: 70px; margin-top: 5px;" />'
+    'style="height: 80px; margin-top: 5px;" />'
     '</div>',
     unsafe_allow_html=True
 )
