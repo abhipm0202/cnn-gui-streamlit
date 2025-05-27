@@ -189,18 +189,24 @@ if mode == "Train New Model" and uploaded_zip:
         st.pyplot(fig2)
 
         # Prompt to save model
-        save_name = st.text_input("💾 Save trained model as (no extension):", f"cnn_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
-        save_triggered = st.button("Save Trained Model")
+        # --- Save Model Logic (Reliable with session state) ---
+        default_name = f"cnn_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        save_name = st.text_input("💾 Save trained model as (no extension):", default_name)
 
-        if save_triggered:
-            torch.save(model, f"{save_name}.pt")
-            st.success(f"Model saved as {save_name}.pt")
+        if st.button("Save Trained Model"):
+            model_path = f"{save_name}.pt"
+            torch.save(model, model_path)
+            st.session_state.model_saved = True
+            st.session_state.model_path = model_path
+            st.success(f"✅ Model saved as {model_path}")
 
-            with open(f"{save_name}.pt", "rb") as f:
+        # Show download button only if model was saved
+        if st.session_state.get("model_saved", False):
+            with open(st.session_state.model_path, "rb") as f:
                 st.download_button(
                     label="📥 Download Trained Model",
                     data=f,
-                    file_name=f"{save_name}.pt",
+                    file_name=st.session_state.model_path,
                     mime="application/octet-stream"
                 )
 
