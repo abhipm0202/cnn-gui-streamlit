@@ -12,8 +12,8 @@ import torch.optim as optim
 from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset, Subset
 from collections import Counter
+from datetime import datetime
 
-# --- Page Setup ---
 st.set_page_config(layout="wide", page_title="Colab CNN Trainer")
 
 # --- Config ---
@@ -27,7 +27,7 @@ class ImageFolderDataset(Dataset):
         self.paths, self.labels = [], []
         self.transform = transforms.Compose([
             transforms.Resize(IMAGE_SIZE),
-            transforms.ToTensor()  # Normalization removed for stability
+            transforms.ToTensor()
         ])
         for label, idx in class_to_idx.items():
             folder = os.path.join(base_dir, label)
@@ -94,7 +94,7 @@ def extract_zip(zip_file):
     with zipfile.ZipFile(zip_file, "r") as z: z.extractall(EXTRACT_DIR)
     return EXTRACT_DIR
 
-# --- Header UI ---
+# --- Header ---
 col1, col2, col3 = st.columns([1.5, 3, 1.5])
 with col1:
     st.image("NMIS_logo.png", use_container_width=True)
@@ -104,20 +104,36 @@ with col2:
 with col3:
     st.image("Colab_logo.png", use_container_width=True)
 
-
-# --- Sidebar Inputs ---
+# --- Sidebar Config ---
 with st.sidebar:
     st.markdown("## ⚙️ Configuration")
-    uploaded_zip = st.file_uploader("Upload ZIP of labeled folders", type="zip")
-    split_ratio = st.slider("Train-Test Split (%)", 10, 90, 80)
-    n_layers = st.slider("Conv Layers", 1, 5, 2)
-    filters = st.slider("Filters/layer", 8, 128, 32)
-    optimizer_choice = st.selectbox("Optimizer", ["Adam", "SGD", "RMSprop", "Adagrad"])
-    epochs = st.slider("Epochs", 1, 50, 20)
-    batch_size = st.slider("Batch Size", 4, 64, 16)
+    mode = st.radio("Select Mode", ["Train New Model", "Load Trained Model"])
 
-# --- Main Panel Logic ---
-if uploaded_zip:
+    if mode == "Train New Model":
+        uploaded_zip = st.file_uploader("Upload ZIP of labeled folders", type="zip")
+        split_ratio = st.slider("Train-Test Split (%)", 10, 90, 80)
+        n_layers = st.slider("Conv Layers", 1, 5, 2)
+        filters = st.slider("Filters/layer", 8, 128, 32)
+        optimizer_choice = st.selectbox("Optimizer", ["Adam", "SGD", "RMSprop", "Adagrad"])
+        epochs = st.slider("Epochs", 1, 50, 20)
+        batch_size = st.slider("Batch Size", 4, 64, 16)
+    else:
+        model_file = st.file_uploader("Upload trained model (.pt)", type=["pt"])
+        label_list = st.text_input("Class Labels (comma-separated)", "Blowhole,Break,Crack,Fray,Free")
+
+# --- Load Model Mode ---
+if mode == "Load Trained Model" and model_file is not None:
+    try:
+        class_names = [cls.strip() for cls in label_list.split(",")]
+        model = torch.load(model_file, map_location=DEVICE)
+        st.session_state.model = model
+        st.session_state.class_names = class_names
+        st.success("✅ Model loaded successfully. You can test below.")
+    except Exception as e:
+        st.error(f"Failed to load model: {e}")
+
+# --- Train Mode Logic ---
+if mode == "Train New Model" and uploaded_zip:
     base_dir = extract_zip(uploaded_zip)
     class_names = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
     class_to_idx = {cls: i for i, cls in enumerate(class_names)}
@@ -136,9 +152,8 @@ if uploaded_zip:
         val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size)
 
         model = build_cnn(n_layers, filters, len(class_names)).to(DEVICE)
-
-        # Correct loss and optimizer handling
         loss_fn = nn.CrossEntropyLoss()
+
         opt_map = {
             "Adam": (optim.Adam, 0.001),
             "SGD": (optim.SGD, 0.01),
@@ -172,6 +187,13 @@ if uploaded_zip:
         sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, yticklabels=class_names, ax=ax2)
         st.subheader("🧾 Confusion Matrix")
         st.pyplot(fig2)
+
+        # Prompt to save model
+        save_name = st.text_input("💾 Save trained model as (no extension):", f"cnn_model_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        if st.button("Save Trained Model"):
+            torch.save(model, f"{save_name}.pt")
+            with open(f"{save_name}.pt", "rb") as f:
+                st.download_button("📥 Download Trained Model", f, file_name=f"{save_name}.pt")
 
 # --- Prediction UI ---
 if "model" in st.session_state and "class_names" in st.session_state:
