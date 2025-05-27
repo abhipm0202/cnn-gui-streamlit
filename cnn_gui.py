@@ -204,10 +204,17 @@ if mode == "Train New Model" and uploaded_zip:
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(y.cpu().numpy())
         cm = confusion_matrix(all_labels, all_preds)
-        fig2, ax2 = plt.subplots()
-        sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, yticklabels=class_names, ax=ax2)
+        accuracy = 100.0 * np.trace(cm) / np.sum(cm)
+
         st.subheader("🧾 Confusion Matrix")
+        st.markdown(f"**Accuracy:** {accuracy:.2f}%")
+
+        fig2, ax2 = plt.subplots()
+        sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, yticklabels=class_names, ax=ax2, cmap="Blues")
+        ax2.set_xlabel("Predicted Labels")
+        ax2.set_ylabel("Actual Labels")
         st.pyplot(fig2)
+
 
 # --- Save/Download After Training ---
 if st.session_state.get("trained_model_ready", False):
