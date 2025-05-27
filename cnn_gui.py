@@ -13,6 +13,8 @@ from torchvision import transforms, models
 from torch.utils.data import DataLoader, Dataset, Subset
 from collections import Counter
 from datetime import datetime
+from sklearn.metrics import precision_score, recall_score, f1_score
+
 
 st.set_page_config(layout="wide", page_title="Colab CNN Trainer")
 
@@ -189,13 +191,6 @@ if mode == "Train New Model" and uploaded_zip:
         st.session_state.trained_model = model
         st.session_state.trained_model_ready = True
 
-        st.subheader("📉 Loss Curve")
-        fig, ax = plt.subplots()
-        ax.plot(train_loss, label="Train Loss")
-        ax.plot(val_loss, label="Validation Loss")
-        ax.legend()
-        st.pyplot(fig)
-
         all_preds, all_labels = [], []
         for x, y in val_loader:
             x, y = x.to(DEVICE), y.to(DEVICE)
@@ -203,17 +198,36 @@ if mode == "Train New Model" and uploaded_zip:
                 preds = model(x).argmax(dim=1)
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(y.cpu().numpy())
+
         cm = confusion_matrix(all_labels, all_preds)
         accuracy = 100.0 * np.trace(cm) / np.sum(cm)
+        precision = precision_score(all_labels, all_preds, average='weighted', zero_division=0)
+        recall = recall_score(all_labels, all_preds, average='weighted', zero_division=0)
+        f1 = f1_score(all_labels, all_preds, average='weighted', zero_division=0)
 
-        st.subheader("🧾 Confusion Matrix")
-        st.markdown(f"**Accuracy:** {accuracy:.2f}%")
+        col1, col2 = st.columns(2)
 
-        fig2, ax2 = plt.subplots()
-        sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, yticklabels=class_names, ax=ax2, cmap="Blues")
-        ax2.set_xlabel("Predicted Labels")
-        ax2.set_ylabel("Actual Labels")
-        st.pyplot(fig2)
+        with col1:
+            st.subheader("📉 Loss Curve")
+            fig, ax = plt.subplots()
+            ax.plot(train_loss, label="Train Loss")
+            ax.plot(val_loss, label="Validation Loss")
+            ax.legend()
+            st.pyplot(fig)
+
+        with col2:
+            st.subheader("🧾 Confusion Matrix")
+            st.markdown(f"**Accuracy:** {accuracy:.2f}%")
+            st.markdown(f"**Precision:** {precision:.2f}")
+            st.markdown(f"**Recall:** {recall:.2f}")
+            st.markdown(f"**F1-Score:** {f1:.2f}")
+
+            fig2, ax2 = plt.subplots()
+            sns.heatmap(cm, annot=True, fmt="d", xticklabels=class_names, yticklabels=class_names, ax=ax2, cmap="Blues")
+            ax2.set_xlabel("Predicted Labels")
+            ax2.set_ylabel("Actual Labels")
+            st.pyplot(fig2)
+
 
 
 # --- Save/Download After Training ---
