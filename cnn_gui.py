@@ -148,12 +148,15 @@ if uploaded_zip:
         st.subheader("🧾 Confusion Matrix")
         st.pyplot(fig2)
 
-# --- Prediction Panel ---
-if "model" in st.session_state:
+# --- Prediction Panel (Fix) ---
+if "model" in st.session_state and "class_names" in st.session_state:
     st.markdown("---")
     st.subheader("🔍 Try a Prediction")
-    test_img = st.file_uploader("Upload an image for prediction", type=["jpg", "png", "jpeg"], key="predict")
-    if test_img:
-        label, img = predict_image(st.session_state.model, test_img, st.session_state.class_names)
-        st.image(img, width=200)
-        st.success(f"Predicted Class: {label}")
+    test_img = st.file_uploader("Upload an image for prediction", type=["jpg", "png", "jpeg"])
+    if test_img is not None:
+        try:
+            label, img = predict_image(st.session_state.model, test_img, st.session_state.class_names)
+            st.image(img, width=200)
+            st.success(f"Predicted Class: {label}")
+        except Exception as e:
+            st.error(f"Prediction failed: {str(e)}")
