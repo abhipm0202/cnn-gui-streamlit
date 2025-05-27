@@ -9,19 +9,17 @@ from sklearn.metrics import confusion_matrix
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torchvision import transforms
+from torchvision import transforms, models
 from torch.utils.data import DataLoader, Dataset, Subset
 from collections import Counter
 from datetime import datetime
 
 st.set_page_config(layout="wide", page_title="Colab CNN Trainer")
 
-# --- Config ---
 IMAGE_SIZE = (64, 64)
 EXTRACT_DIR = "temp_data"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# --- Dataset Loader ---
 class ImageFolderDataset(Dataset):
     def __init__(self, base_dir, class_to_idx):
         self.paths, self.labels = [], []
@@ -41,7 +39,6 @@ class ImageFolderDataset(Dataset):
         img = Image.open(self.paths[idx]).convert("RGB")
         return self.transform(img), self.labels[idx]
 
-# --- CNN Builder ---
 def build_cnn(n_layers, filters, num_classes):
     layers, in_channels = [], 3
     for _ in range(n_layers):
@@ -51,7 +48,6 @@ def build_cnn(n_layers, filters, num_classes):
     layers += [nn.Flatten(), nn.Linear(flat_size, 128), nn.ReLU(), nn.Linear(128, num_classes)]
     return nn.Sequential(*layers)
 
-# --- Training Loop ---
 def train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs):
     train_loss, val_loss = [], []
     for _ in range(epochs):
@@ -78,7 +74,6 @@ def train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs):
         val_loss.append(val_running / len(val_loader))
     return train_loss, val_loss
 
-# --- Prediction ---
 def predict_image(model, img_file, class_names):
     img = Image.open(img_file).convert("RGB")
     transform = transforms.Compose([transforms.Resize(IMAGE_SIZE), transforms.ToTensor()])
@@ -88,21 +83,21 @@ def predict_image(model, img_file, class_names):
         pred = model(tensor).argmax(dim=1).item()
     return class_names[pred], img
 
-# --- Extract ZIP ---
 def extract_zip(zip_file):
     if os.path.exists(EXTRACT_DIR): shutil.rmtree(EXTRACT_DIR)
     with zipfile.ZipFile(zip_file, "r") as z: z.extractall(EXTRACT_DIR)
     return EXTRACT_DIR
 
 # --- Header ---
-col1, col2, col3 = st.columns([1.5, 3, 1.5])
-with col1:
-    st.image("NMIS_logo.png", use_container_width=True)
-with col2:
-    st.markdown("<h1 style='text-align: center;'>Colab CNN Trainer</h1>", unsafe_allow_html=True)
-    st.markdown("<h4 style='text-align: center;'>Welcome to CNN GUI developed by D3MColab</h4>", unsafe_allow_html=True)
-with col3:
-    st.image("Colab_logo.png", use_container_width=True)
+with st.container():
+    col1, col2, col3 = st.columns([1.5, 3, 1.5])
+    with col1:
+        st.image("NMIS_logo.png", width=140)
+    with col2:
+        st.markdown("<h1 style='text-align: center; margin-top: 10px;'>Colab CNN Trainer</h1>", unsafe_allow_html=True)
+        st.markdown("<h4 style='text-align: center; margin-top: -15px;'>Welcome to CNN GUI developed by D3MColab</h4>", unsafe_allow_html=True)
+    with col3:
+        st.image("Colab_logo.png", width=120)
 
 # --- Sidebar Config ---
 with st.sidebar:
@@ -112,8 +107,13 @@ with st.sidebar:
     if mode == "Train New Model":
         uploaded_zip = st.file_uploader("Upload ZIP of labeled folders", type="zip")
         split_ratio = st.slider("Train-Test Split (%)", 10, 90, 80)
-        n_layers = st.slider("Conv Layers", 1, 5, 2)
-        filters = st.slider("Filters/layer", 8, 128, 32)
+        use_pretrained = st.checkbox("Use Pretrained Model (ResNet)")
+        if use_pretrained:
+            resnet_type = st.selectbox("Select ResNet", ["ResNet18", "ResNet50"])
+        else:
+            n_layers = st.slider("Conv Layers", 1, 20, 3)
+            filters = st.slider("Filters/layer", 8, 128, 32)
+
         optimizer_choice = st.selectbox("Optimizer", ["Adam", "SGD", "RMSprop", "Adagrad"])
         epochs = st.slider("Epochs", 1, 50, 20)
         batch_size = st.slider("Batch Size", 4, 64, 16)
@@ -121,7 +121,7 @@ with st.sidebar:
         model_file = st.file_uploader("Upload trained model (.pt)", type=["pt"])
         label_list = st.text_input("Class Labels (comma-separated)", "Blowhole,Break,Crack,Fray,Free")
 
-# --- Load Model Mode ---
+# --- Load Pretrained Model Mode ---
 if mode == "Load Trained Model" and model_file is not None:
     try:
         class_names = [cls.strip() for cls in label_list.split(",")]
@@ -132,7 +132,7 @@ if mode == "Load Trained Model" and model_file is not None:
     except Exception as e:
         st.error(f"Failed to load model: {e}")
 
-# --- Train Mode Logic ---
+# --- Training Logic ---
 if mode == "Train New Model" and uploaded_zip:
     base_dir = extract_zip(uploaded_zip)
     class_names = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
@@ -151,9 +151,17 @@ if mode == "Train New Model" and uploaded_zip:
         train_loader = DataLoader(Subset(dataset, train_idx), batch_size=batch_size, shuffle=True)
         val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size)
 
-        model = build_cnn(n_layers, filters, len(class_names)).to(DEVICE)
-        loss_fn = nn.CrossEntropyLoss()
+        if use_pretrained:
+            if resnet_type == "ResNet18":
+                model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            else:
+                model = models.resnet50(weights=models.ResNet50_Weights.DEFAULT)
+            model.fc = nn.Linear(model.fc.in_features, len(class_names))
+        else:
+            model = build_cnn(n_layers, filters, len(class_names))
 
+        model = model.to(DEVICE)
+        loss_fn = nn.CrossEntropyLoss()
         opt_map = {
             "Adam": (optim.Adam, 0.001),
             "SGD": (optim.SGD, 0.01),
