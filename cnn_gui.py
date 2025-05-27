@@ -97,12 +97,13 @@ def extract_zip(zip_file):
 # --- Header UI ---
 col1, col2, col3 = st.columns([1.5, 3, 1.5])
 with col1:
-    st.image("NMIS_logo.png", use_column_width=True)
+    st.image("NMIS_logo.png", use_container_width=True)
 with col2:
     st.markdown("<h1 style='text-align: center;'>Colab CNN Trainer</h1>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>Welcome to CNN GUI developed by D3MColab</h4>", unsafe_allow_html=True)
 with col3:
-    st.image("Colab_logo.png", use_column_width=True)
+    st.image("Colab_logo.png", use_container_width=True)
+
 
 # --- Sidebar Inputs ---
 with st.sidebar:
