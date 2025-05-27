@@ -13,18 +13,21 @@ from torchvision import transforms
 from torch.utils.data import DataLoader, Dataset, Subset
 from collections import Counter
 
+# --- Page Setup ---
 st.set_page_config(layout="wide", page_title="Colab CNN Trainer")
 
+# --- Config ---
 IMAGE_SIZE = (64, 64)
 EXTRACT_DIR = "temp_data"
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# --- Dataset Loader ---
 class ImageFolderDataset(Dataset):
     def __init__(self, base_dir, class_to_idx):
         self.paths, self.labels = [], []
         self.transform = transforms.Compose([
             transforms.Resize(IMAGE_SIZE),
-            transforms.ToTensor()
+            transforms.ToTensor()  # Normalization removed for stability
         ])
         for label, idx in class_to_idx.items():
             folder = os.path.join(base_dir, label)
@@ -38,6 +41,7 @@ class ImageFolderDataset(Dataset):
         img = Image.open(self.paths[idx]).convert("RGB")
         return self.transform(img), self.labels[idx]
 
+# --- CNN Builder ---
 def build_cnn(n_layers, filters, num_classes):
     layers, in_channels = [], 3
     for _ in range(n_layers):
@@ -47,32 +51,50 @@ def build_cnn(n_layers, filters, num_classes):
     layers += [nn.Flatten(), nn.Linear(flat_size, 128), nn.ReLU(), nn.Linear(128, num_classes)]
     return nn.Sequential(*layers)
 
+# --- Training Loop ---
 def train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs):
     train_loss, val_loss = [], []
     for _ in range(epochs):
         model.train()
-        total = sum(loss_fn(model(x.to(DEVICE)), y.to(DEVICE)).item() for x, y in train_loader)
-        train_loss.append(total / len(train_loader))
+        running_loss = 0
+        for x, y in train_loader:
+            x, y = x.to(DEVICE), y.to(DEVICE)
+            optimizer.zero_grad()
+            output = model(x)
+            loss = loss_fn(output, y)
+            loss.backward()
+            optimizer.step()
+            running_loss += loss.item()
+        train_loss.append(running_loss / len(train_loader))
+
         model.eval()
+        val_running = 0
         with torch.no_grad():
-            vtotal = sum(loss_fn(model(x.to(DEVICE)), y.to(DEVICE)).item() for x, y in val_loader)
-        val_loss.append(vtotal / len(val_loader))
+            for x, y in val_loader:
+                x, y = x.to(DEVICE), y.to(DEVICE)
+                output = model(x)
+                loss = loss_fn(output, y)
+                val_running += loss.item()
+        val_loss.append(val_running / len(val_loader))
     return train_loss, val_loss
 
+# --- Prediction ---
 def predict_image(model, img_file, class_names):
     img = Image.open(img_file).convert("RGB")
-    tensor = transforms.Compose([transforms.Resize(IMAGE_SIZE), transforms.ToTensor()])(img).unsqueeze(0).to(DEVICE)
+    transform = transforms.Compose([transforms.Resize(IMAGE_SIZE), transforms.ToTensor()])
+    tensor = transform(img).unsqueeze(0).to(DEVICE)
     model.eval()
     with torch.no_grad():
         pred = model(tensor).argmax(dim=1).item()
     return class_names[pred], img
 
+# --- Extract ZIP ---
 def extract_zip(zip_file):
     if os.path.exists(EXTRACT_DIR): shutil.rmtree(EXTRACT_DIR)
     with zipfile.ZipFile(zip_file, "r") as z: z.extractall(EXTRACT_DIR)
     return EXTRACT_DIR
 
-# --- Header ---
+# --- Header UI ---
 col1, col2, col3 = st.columns([1.5, 3, 1.5])
 with col1:
     st.image("NMIS_logo.png", use_column_width=True)
@@ -82,7 +104,7 @@ with col2:
 with col3:
     st.image("Colab_logo.png", use_column_width=True)
 
-# --- Sidebar for inputs ---
+# --- Sidebar Inputs ---
 with st.sidebar:
     st.markdown("## ⚙️ Configuration")
     uploaded_zip = st.file_uploader("Upload ZIP of labeled folders", type="zip")
@@ -90,11 +112,10 @@ with st.sidebar:
     n_layers = st.slider("Conv Layers", 1, 5, 2)
     filters = st.slider("Filters/layer", 8, 128, 32)
     optimizer_choice = st.selectbox("Optimizer", ["Adam", "SGD", "RMSprop", "Adagrad"])
-    loss_choice = st.selectbox("Loss Function", ["CrossEntropyLoss", "NLLLoss", "MSELoss"])
-    epochs = st.slider("Epochs", 1, 50, 10)
+    epochs = st.slider("Epochs", 1, 50, 20)
     batch_size = st.slider("Batch Size", 4, 64, 16)
 
-# --- Training Panel (Main Body) ---
+# --- Main Panel Logic ---
 if uploaded_zip:
     base_dir = extract_zip(uploaded_zip)
     class_names = sorted([d for d in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, d))])
@@ -114,14 +135,17 @@ if uploaded_zip:
         val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size)
 
         model = build_cnn(n_layers, filters, len(class_names)).to(DEVICE)
-        loss_fn = getattr(nn, loss_choice)()
+
+        # Correct loss and optimizer handling
+        loss_fn = nn.CrossEntropyLoss()
         opt_map = {
-            "Adam": optim.Adam,
-            "SGD": optim.SGD,
-            "RMSprop": optim.RMSprop,
-            "Adagrad": optim.Adagrad
+            "Adam": (optim.Adam, 0.001),
+            "SGD": (optim.SGD, 0.01),
+            "RMSprop": (optim.RMSprop, 0.005),
+            "Adagrad": (optim.Adagrad, 0.01)
         }
-        optimizer = opt_map[optimizer_choice](model.parameters(), lr=0.001)
+        opt_class, lr = opt_map[optimizer_choice]
+        optimizer = opt_class(model.parameters(), lr=lr)
 
         st.info("Training in progress...")
         train_loss, val_loss = train_model(model, train_loader, val_loader, loss_fn, optimizer, epochs)
@@ -148,7 +172,7 @@ if uploaded_zip:
         st.subheader("🧾 Confusion Matrix")
         st.pyplot(fig2)
 
-# --- Prediction Panel (Fix) ---
+# --- Prediction UI ---
 if "model" in st.session_state and "class_names" in st.session_state:
     st.markdown("---")
     st.subheader("🔍 Try a Prediction")
